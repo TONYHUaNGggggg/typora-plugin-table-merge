@@ -1,11 +1,11 @@
 {
-  "id": "your-github-username.example",
-  "name": "Example",
-  "description": "Example plugin for typora.",
-  "author": "author name",
-  "authorUrl": "https://github.com/your-github-username",
-  "repo": "your-github-username/typora-plugin-example",
-  "version": "1.0.0",
+  "id": "tonyhuang.table-merge",
+  "name": "Table Merge",
+  "description": "Edit and export merged cells in native Typora Markdown tables.",
+  "author": "Tony Huang",
+  "authorUrl": "https://github.com/TONYHUaNGggggg",
+  "repo": "TONYHUaNGggggg/typora-plugin-table-merge",
+  "version": "0.2.4",
   "minAppVersion": "1.5.0",
   "minCoreVersion": "2.7.7",
   "platforms": ["win32", "linux", "darwin"]

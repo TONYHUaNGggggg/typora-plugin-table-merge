@@ -1,5 +1,8 @@
 MIT License
 
+Copyright (c) 2026 Tony Huang
+
+Based on the typora-community-plugin example project.
 Copyright (c) 2023 plylrnsdy
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

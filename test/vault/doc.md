@@ -1,4 +1,15 @@
-# Title
+# Table Merge 开发测试
 
-Lorem, ipsum dolor sit amet consectetur adipisicing elit.
-Adipisci nesciunt dolorem, blanditiis ea facilis, omnis dignissimos, eligendi architecto ducimus veniam necessitatibus illum assumenda id culpa officiis explicabo delectus sequi! Quas.
+按住 Option/Alt，依次点击矩形区域的左上角和右下角单元格，然后从命令面板执行“表格：合并选中的单元格”。
+
+| 部门 | 姓名 | 分数 |
+| --- | --- | ---: |
+| 研发部 | 张三 | 90 |
+| ::tmc-up:e7a094e58f91e983a8:: | 李四 | 95 |
+| 市场部 | 王五 | 88 |
+
+下面是横向合并测试：
+
+| 项目汇总 | ::tmc-left:5151:: | 总分 |
+| --- | --- | ---: |
+| 第一组 | 张三 | 90 |
