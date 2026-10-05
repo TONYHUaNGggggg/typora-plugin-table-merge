@@ -8,8 +8,11 @@ yalc.lock
 # output
 dist/
 plugin.zip
+typora-table-merge-macos-native-*.zip
+release_body.md
 
 # local Typora integration artifacts
 integration-backup/
 INTEGRATION_NOTES.zh-CN.md
 .DS_Store
+native/macos/build/

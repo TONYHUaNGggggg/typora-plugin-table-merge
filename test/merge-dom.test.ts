@@ -3,7 +3,6 @@ import test from 'node:test'
 import { Window } from 'happy-dom'
 import {
   applyMergesToTable,
-  maskMergeMarkerCells,
   restoreMergedTable,
 } from '../src/merge-dom.ts'
 
@@ -29,11 +28,15 @@ test('renders a rectangular merge in the live editor', () => {
   const origin = bodyRows[0].cells[0]
   assert.equal(origin.rowSpan, 2)
   assert.equal(origin.colSpan, 2)
+  assert.equal(origin.dataset.tmSize, '2×2')
+  assert.match(origin.title, /2×2/)
+  assert.doesNotMatch(origin.title, /双击|展开|编辑底层/)
   assert.equal(table.querySelectorAll('.tm-covered-cell').length, 3)
 
   restoreMergedTable(table)
   assert.equal(origin.getAttribute('rowspan'), null)
   assert.equal(origin.getAttribute('colspan'), null)
+  assert.equal(origin.getAttribute('data-tm-size'), null)
   assert.equal(table.querySelectorAll('.tm-covered-cell').length, 0)
 })
 
@@ -46,22 +49,6 @@ test('does not touch a normal Typora table without merge markers', () => {
 
   assert.equal(applyMergesToTable(table, 'live'), 0)
   assert.equal(table.outerHTML, before)
-})
-
-test('masks marker cells for Alt selection without changing persisted text', () => {
-  const table = makeTable()
-  const markerCell = table.querySelectorAll<HTMLTableCellElement>('tbody td')[1]
-  const markerText = markerCell.textContent
-
-  maskMergeMarkerCells(table)
-
-  assert.equal(markerCell.classList.contains('tm-marker-cell'), true)
-  assert.equal(markerCell.textContent, markerText)
-  assert.equal(table.querySelectorAll('.tm-marker-cell').length, 3)
-
-  restoreMergedTable(table)
-  assert.equal(table.querySelectorAll('.tm-marker-cell').length, 0)
-  assert.equal(markerCell.textContent, markerText)
 })
 
 test('exports real rowspan/colspan and removes marker cells', () => {

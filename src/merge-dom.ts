@@ -17,6 +17,7 @@ export function restoreMergedTable(table: HTMLTableElement) {
       cell.removeAttribute('rowspan')
       cell.removeAttribute('colspan')
       cell.removeAttribute('data-tm-origin')
+      cell.removeAttribute('data-tm-size')
       cell.removeAttribute('title')
     })
 
@@ -27,26 +28,6 @@ export function restoreMergedTable(table: HTMLTableElement) {
       cell.removeAttribute('aria-hidden')
     })
 
-  table
-    .querySelectorAll<HTMLTableCellElement>('.tm-marker-cell')
-    .forEach(cell => cell.classList.remove('tm-marker-cell'))
-}
-
-/**
- * Keep persisted merge markers in the DOM so Typora's table coordinates stay
- * intact, but remove their text from layout while an Alt/Option selection is
- * active. This prevents long hexadecimal marker strings from flashing and
- * changing row heights when a merged table is temporarily expanded.
- */
-export function maskMergeMarkerCells(table: HTMLTableElement) {
-  Array.from(table.rows).forEach(row => {
-    Array.from(row.cells).forEach(cell => {
-      cell.classList.toggle(
-        'tm-marker-cell',
-        Boolean(parseMarker(cell.textContent ?? '')),
-      )
-    })
-  })
 }
 
 export function applyMergesToTable(table: HTMLTableElement, mode: RenderMode) {
@@ -150,7 +131,8 @@ function applyMergesToRowGroup(rows: HTMLTableRowElement[], mode: RenderMode) {
 
     if (mode === 'live') {
       origin.cell.dataset.tmOrigin = 'true'
-      origin.cell.title = '双击展开并编辑底层单元格'
+      origin.cell.dataset.tmSize = `${rowSpan}×${colSpan}`
+      origin.cell.title = `合并区域 ${rowSpan}×${colSpan}（${positions.length} 个单元格）`
     }
 
     positions.forEach(([row, col]) => {

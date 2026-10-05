@@ -6,13 +6,21 @@ import {
 } from '@typora-community-plugin/core'
 import { File, editor } from 'typora'
 import {
+  clearRectangleInMarkdown,
+  deleteTableColumnInMarkdown,
+  deleteTableRowInMarkdown,
+  extractRectangleFromMarkdown,
+  insertTableColumnInMarkdown,
+  insertTableRowInMarkdown,
   mergeRectangleInMarkdown,
   parseMarker,
+  pasteRectangleInMarkdown,
+  plainTextToRectangle,
+  rectangleToPlainText,
   unmergeRectangleInMarkdown,
 } from './table-model'
 import {
   applyMergesToTable,
-  maskMergeMarkerCells,
   restoreMergedTable,
 } from './merge-dom'
 
@@ -22,20 +30,39 @@ type CellPoint = {
   col: number
 }
 
+type TableRange = {
+  table: HTMLTableElement
+  minRow: number
+  maxRow: number
+  minCol: number
+  maxCol: number
+}
+
 type ReloadContent = (
   markdown: string,
   options?: Record<string, unknown>,
 ) => void
 
 type TyporaTableEdit = {
-  addRow: (before: boolean) => void
-  addCol: (before: boolean) => void
-  deleteRow: (fromMenu?: boolean) => void
-  deleteCol: () => void
   copyTable: () => void
   reformatTable: () => void
   deleteTable: () => void
 }
+
+type TableClipboard = {
+  version: 1
+  rows: string[][]
+  plainText: string
+}
+
+const NATIVE_MENU_EVENT = 'tm-native-menu-action'
+const NATIVE_MERGE_ITEM = 'tm.table-merge.merge'
+const NATIVE_UNMERGE_ITEM = 'tm.table-merge.unmerge'
+const NATIVE_STRUCTURE_ITEM = 'tm.table-merge.structure'
+const NATIVE_COPY_ITEM = 'tm.table-merge.copy'
+const NATIVE_CUT_ITEM = 'tm.table-merge.cut'
+const NATIVE_PASTE_ITEM = 'tm.table-merge.paste'
+const TABLE_CLIPBOARD_MIME = 'application/x-typora-table-merge+json'
 
 export default class TableMergePlugin extends Plugin {
   private anchor?: CellPoint
@@ -46,6 +73,10 @@ export default class TableMergePlugin extends Plugin {
   private contextMenu?: HTMLDivElement
   private mergeMenuItem?: HTMLDivElement
   private unmergeMenuItem?: HTMLDivElement
+  private copyMenuItem?: HTMLDivElement
+  private cutMenuItem?: HTMLDivElement
+  private pasteMenuItem?: HTMLDivElement
+  private tableClipboard?: TableClipboard
 
   onload() {
     this.registerMarkdownProcessors()
@@ -54,7 +85,18 @@ export default class TableMergePlugin extends Plugin {
     this.registerDocumentEvent('mousedown', this.onDocumentMouseDown)
     this.registerDocumentEvent('contextmenu', this.onDocumentContextMenu)
     this.registerDocumentEvent('click', this.onDocumentClick)
-    this.registerDocumentEvent('dblclick', this.onDocumentDoubleClick)
+    this.registerDocumentEvent('keydown', this.onDocumentKeyDown)
+    this.registerDocumentEvent('copy', this.onDocumentCopy)
+    this.registerDocumentEvent('cut', this.onDocumentCut)
+    this.registerDocumentEvent('paste', this.onDocumentPaste)
+    window.addEventListener(NATIVE_MENU_EVENT, this.onNativeMenuAction)
+    window.__TMT_NATIVE_MENU_ACTION__ = this.onNativeMenuDirectAction
+    this.register(() => {
+      window.removeEventListener(NATIVE_MENU_EVENT, this.onNativeMenuAction)
+      if (window.__TMT_NATIVE_MENU_ACTION__ === this.onNativeMenuDirectAction) {
+        delete window.__TMT_NATIVE_MENU_ACTION__
+      }
+    })
 
     try {
       this.installTableContextMenuItems()
@@ -81,12 +123,7 @@ export default class TableMergePlugin extends Plugin {
     const writingArea = document.querySelector('#write')
     if (!writingArea) return
 
-    const observer = new MutationObserver(() => {
-      document
-        .querySelectorAll<HTMLTableElement>('#write table[data-tm-selecting="true"]')
-        .forEach(maskMergeMarkerCells)
-      this.scheduleLiveRender()
-    })
+    const observer = new MutationObserver(() => this.scheduleLiveRender())
     observer.observe(writingArea, {
       childList: true,
       characterData: true,
@@ -101,7 +138,7 @@ export default class TableMergePlugin extends Plugin {
     window.clearTimeout(this.renderTimer)
     this.renderTimer = window.setTimeout(() => {
       document
-        .querySelectorAll<HTMLTableElement>('#write table:not([data-tm-editing="true"])')
+        .querySelectorAll<HTMLTableElement>('#write table')
         .forEach(table => applyMergesToTable(table, 'live'))
     })
   }
@@ -111,7 +148,6 @@ export default class TableMergePlugin extends Plugin {
       selector: 'table',
       process: (element) => {
         const table = element as HTMLTableElement
-        if (table.matches('[data-tm-editing="true"]')) return
         applyMergesToTable(table, 'live')
       },
     })
@@ -162,17 +198,31 @@ export default class TableMergePlugin extends Plugin {
     })
 
     this.registerCommand({
-      id: 'toggle-current-table-edit-mode',
-      title: '表格：切换合并预览/原始编辑',
-      scope: 'editor',
-      callback: () => this.toggleEditMode(),
-    })
-
-    this.registerCommand({
       id: 'clear-cell-selection',
       title: '表格：清除合并区域选择',
       scope: 'editor',
       callback: () => this.clearSelection(true),
+    })
+
+    this.registerCommand({
+      id: 'copy-selected-cells',
+      title: '表格：复制所选区域（保留合并结构）',
+      scope: 'editor',
+      callback: () => this.copySelectedCells(),
+    })
+
+    this.registerCommand({
+      id: 'cut-selected-cells',
+      title: '表格：剪切所选区域（保留合并结构）',
+      scope: 'editor',
+      callback: () => this.cutSelectedCells(),
+    })
+
+    this.registerCommand({
+      id: 'paste-selected-cells',
+      title: '表格：粘贴区域（保留合并结构）',
+      scope: 'editor',
+      callback: () => this.pasteSelectedCells(),
     })
   }
 
@@ -196,8 +246,12 @@ export default class TableMergePlugin extends Plugin {
       )
 
       if (startsNewSelection) {
-        this.beginSelectionAtCell(cell)
-        this.selectionComplete = false
+        if (cell.dataset.tmOrigin === 'true') {
+          this.selectMergedCellRange(cell)
+        } else {
+          this.beginSelectionAtCell(cell)
+          this.selectionComplete = false
+        }
       } else {
         this.selectCell(cell)
         const range = this.getSelectionRange()
@@ -260,45 +314,256 @@ export default class TableMergePlugin extends Plugin {
     const clickedTable = target?.closest<HTMLTableElement>('#write table')
     if (!clickedTable) {
       this.clearSelection(true)
-      document
-        .querySelectorAll<HTMLTableElement>('#write table[data-tm-editing="true"]')
-        .forEach(table => {
-          table.removeAttribute('data-tm-editing')
-          applyMergesToTable(table, 'live')
-        })
     }
+  }
+
+  private onDocumentKeyDown = (event: Event) => {
+    const keyboardEvent = event as KeyboardEvent
+    if (keyboardEvent.key === 'Escape' && this.getSelectionRange()) {
+      keyboardEvent.preventDefault()
+      keyboardEvent.stopImmediatePropagation()
+      this.clearSelection(true)
+      return
+    }
+
+    if (
+      !keyboardEvent.altKey ||
+      keyboardEvent.metaKey ||
+      keyboardEvent.ctrlKey ||
+      !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(keyboardEvent.key)
+    ) return
+
+    if (!this.getSelectionRange()) {
+      const cell = this.getFocusedCell()
+      if (!cell) return
+      if (cell.dataset.tmOrigin === 'true') this.selectMergedCellRange(cell)
+      else this.beginSelectionAtCell(cell)
+    }
+
+    const range = this.getSelectionRange()
+    const focus = this.focus
+    if (!range || !focus) return
+
+    const delta = {
+      ArrowUp: [-1, 0],
+      ArrowDown: [1, 0],
+      ArrowLeft: [0, -1],
+      ArrowRight: [0, 1],
+    }[keyboardEvent.key]!
+    const nextRow = Math.max(
+      0,
+      Math.min(focus.row + delta[0], range.table.rows.length - 1),
+    )
+    const nextCol = Math.max(
+      0,
+      Math.min(focus.col + delta[1], range.table.rows[nextRow].cells.length - 1),
+    )
+
+    keyboardEvent.preventDefault()
+    keyboardEvent.stopImmediatePropagation()
+    this.focus = { table: range.table, row: nextRow, col: nextCol }
+    const nextRange = this.getSelectionRange()
+    this.selectionComplete = Boolean(
+      nextRange && (
+        nextRange.minRow !== nextRange.maxRow ||
+        nextRange.minCol !== nextRange.maxCol
+      )
+    )
+    this.paintSelection()
+  }
+
+  private onDocumentCopy = (event: Event) => {
+    const clipboardEvent = event as ClipboardEvent
+    const range = this.getSelectionRange()
+    if (!range || !this.selectionComplete) return
+
+    try {
+      const clipboard = this.captureSelection(range)
+      this.tableClipboard = clipboard
+      clipboardEvent.preventDefault()
+      clipboardEvent.stopImmediatePropagation()
+      clipboardEvent.clipboardData?.setData('text/plain', clipboard.plainText)
+      try {
+        clipboardEvent.clipboardData?.setData(
+          TABLE_CLIPBOARD_MIME,
+          JSON.stringify(clipboard),
+        )
+      } catch {
+        // Some WebKit builds only allow standard clipboard MIME types.
+      }
+    } catch (error) {
+      clipboardEvent.preventDefault()
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private onDocumentCut = (event: Event) => {
+    const clipboardEvent = event as ClipboardEvent
+    const range = this.getSelectionRange()
+    if (!range || !this.selectionComplete) return
+
+    try {
+      const clipboard = this.captureSelection(range)
+      this.tableClipboard = clipboard
+      clipboardEvent.preventDefault()
+      clipboardEvent.stopImmediatePropagation()
+      clipboardEvent.clipboardData?.setData('text/plain', clipboard.plainText)
+      try {
+        clipboardEvent.clipboardData?.setData(
+          TABLE_CLIPBOARD_MIME,
+          JSON.stringify(clipboard),
+        )
+      } catch {
+        // Keep the in-memory structured clipboard as the fallback.
+      }
+      this.clearSelectedCells(range)
+    } catch (error) {
+      clipboardEvent.preventDefault()
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private onDocumentPaste = (event: Event) => {
+    const clipboardEvent = event as ClipboardEvent
+    const range = this.getSelectionRange()
+    if (!range) return
+
+    const custom = clipboardEvent.clipboardData?.getData(TABLE_CLIPBOARD_MIME)
+    const text = clipboardEvent.clipboardData?.getData('text/plain') ?? ''
+    let rows: string[][] | undefined
+
+    if (custom) {
+      try {
+        const parsed = JSON.parse(custom) as Partial<TableClipboard>
+        if (parsed.version === 1 && Array.isArray(parsed.rows)) rows = parsed.rows
+      } catch {
+        rows = undefined
+      }
+    }
+    if (!rows && this.tableClipboard?.plainText === text) {
+      rows = this.tableClipboard.rows
+    }
+    rows ??= plainTextToRectangle(text)
+
+    clipboardEvent.preventDefault()
+    clipboardEvent.stopImmediatePropagation()
+    this.pasteRows(rows)
   }
 
   private onDocumentContextMenu = (event: Event) => {
     const mouseEvent = event as MouseEvent
     const cell = this.getCellFromMouseEvent(mouseEvent)
     if (!cell) return
+    const table = cell.closest<HTMLTableElement>('table')
+    if (!table) return
+    const needsStructureProtection = this.tableHasMergeMarkers(table)
 
     if (!this.selectionComplete && cell.dataset.tmOrigin === 'true') {
       this.selectMergedCellRange(cell)
     }
 
     const range = this.getSelectionRange()
-    if (
-      !this.selectionComplete ||
-      !range ||
-      !this.isCellInsideSelection(cell)
-    ) {
+    const insideSelection = Boolean(range && this.isCellInsideSelection(cell))
+    const needsSelectionMenu = Boolean(
+      insideSelection && (this.selectionComplete || this.tableClipboard),
+    )
+    if (!needsSelectionMenu && !needsStructureProtection) {
       // A normal table right-click must remain completely owned by Typora.
-      // The plugin menu is only used for an explicit blue Alt/Option selection.
+      // The plugin only participates for an explicit selection or when a
+      // merged table needs structure-aware row/column edits.
       this.hideTableContextMenu()
       if (range) this.clearSelection(true)
+      return
+    }
+
+    this.contextCell = cell
+    this.focusTyporaCell(cell)
+    if (insideSelection && this.selectionComplete) {
+      this.clearNativeTextSelection()
+    }
+
+    if (this.publishNativeMenuState()) {
+      // The optional native bridge appends our commands to Typora's real
+      // NSMenu/Electron menu. Do not cancel the event: Typora must still build
+      // all of its original context-menu items.
       return
     }
 
     mouseEvent.preventDefault()
     mouseEvent.stopImmediatePropagation()
 
-    this.contextCell = cell
-    this.focusTyporaCell(cell)
     this.updateTableContextMenuItems()
     const { clientX, clientY } = mouseEvent
     window.setTimeout(() => this.showTableContextMenu(clientX, clientY))
+  }
+
+  private onNativeMenuAction = (event: Event) => {
+    const action = (event as CustomEvent<string>).detail
+    this.onNativeMenuDirectAction(action)
+  }
+
+  private onNativeMenuDirectAction = (action: string) => {
+    const actions: Record<string, () => void> = {
+      merge: () => this.mergeSelectedCells(),
+      unmerge: () => this.unmergeSelectedCells(),
+      copy: () => this.copySelectedCells(),
+      cut: () => this.cutSelectedCells(),
+      paste: () => this.pasteSelectedCells(),
+      'insert-row-before': () => this.insertRow(true),
+      'insert-row-after': () => this.insertRow(false),
+      'insert-col-before': () => this.insertColumn(true),
+      'insert-col-after': () => this.insertColumn(false),
+      'delete-row': () => this.deleteRow(),
+      'delete-col': () => this.deleteColumn(),
+    }
+    const callback = actions[action]
+    if (!callback) return 'unknown-action'
+    callback()
+    return `handled-${action}`
+  }
+
+  private publishNativeMenuState() {
+    const isMac = /Mac/i.test(navigator.platform || navigator.userAgent)
+    if (!window.__TMT_NATIVE_MENU_BRIDGE__ && !isMac) return false
+
+    const callSync = window.bridge?.callSync
+    const setItems = window.JSBridge?.contextMenu?.setItems
+    const range = this.getSelectionRange()
+    if (typeof callSync !== 'function' && typeof setItems !== 'function') return false
+
+    const items = ['normal']
+    const table = this.contextCell?.closest<HTMLTableElement>('table') ?? range?.table
+    if (!table) return false
+
+    if (this.selectionComplete && range) {
+      const rows = range.maxRow - range.minRow + 1
+      const cols = range.maxCol - range.minCol + 1
+      const containsMerge = this.selectionContainsMergeMarker(range)
+      if (rows * cols > 1 && !containsMerge) items.push(NATIVE_MERGE_ITEM)
+      if (containsMerge) items.push(NATIVE_UNMERGE_ITEM)
+      items.push(NATIVE_COPY_ITEM, NATIVE_CUT_ITEM)
+    }
+    if (this.tableClipboard && range) items.push(NATIVE_PASTE_ITEM)
+    if (this.tableHasMergeMarkers(table)) items.push(NATIVE_STRUCTURE_ITEM)
+    if (items.length === 1) return false
+
+    try {
+      // Typora normally calls setItems again later in this contextmenu event.
+      // The native bridge remembers these sentinel keys and combines them
+      // with Typora's final menu instead of replacing its menu. On macOS we
+      // publish optimistically so startup timing cannot force the HTML menu;
+      // without the native bridge Typora simply ignores the sentinel keys and
+      // still shows its original context menu.
+      if (typeof callSync === 'function') {
+        callSync.call(window.bridge, 'contextMenu.setItems', items)
+      } else {
+        setItems!.call(window.JSBridge!.contextMenu, items)
+      }
+      return true
+    } catch (error) {
+      console.error('[Table Merge] Failed to publish native menu state', error)
+      return false
+    }
   }
 
   private selectMergedCellRange(cell: HTMLTableCellElement) {
@@ -312,10 +577,6 @@ export default class TableMergePlugin extends Plugin {
     const colSpan = cell.colSpan
 
     this.clearSelection(false)
-    table.dataset.tmSelecting = 'true'
-    restoreMergedTable(table)
-    table.dataset.tmEditing = 'true'
-    maskMergeMarkerCells(table)
     this.anchor = { table, row, col }
     this.focus = {
       table,
@@ -326,25 +587,10 @@ export default class TableMergePlugin extends Plugin {
     this.paintSelection()
   }
 
-  private onDocumentDoubleClick = (event: Event) => {
-    const target = event.target as Element | null
-    const table = target?.closest<HTMLTableElement>('#write table.tm-merged-table')
-    if (!table) return
-
-    table.dataset.tmEditing = 'true'
-    table.removeAttribute('data-tm-selecting')
-    restoreMergedTable(table)
-  }
-
   private selectCell(cell: HTMLTableCellElement) {
     const table = cell.closest<HTMLTableElement>('table')
     const rowElement = cell.parentElement as HTMLTableRowElement | null
     if (!table || !rowElement) return
-
-    table.dataset.tmSelecting = 'true'
-    restoreMergedTable(table)
-    table.dataset.tmEditing = 'true'
-    maskMergeMarkerCells(table)
 
     const point: CellPoint = {
       table,
@@ -387,6 +633,7 @@ export default class TableMergePlugin extends Plugin {
   }
 
   private paintSelection() {
+    this.clearNativeTextSelection()
     document
       .querySelectorAll('.tm-cell-selected')
       .forEach(cell => cell.classList.remove('tm-cell-selected'))
@@ -401,6 +648,11 @@ export default class TableMergePlugin extends Plugin {
     }
   }
 
+  private clearNativeTextSelection() {
+    const selection = window.getSelection()
+    if (selection?.rangeCount) selection.removeAllRanges()
+  }
+
   private getSelectionRange() {
     if (!this.anchor || !this.focus || this.anchor.table !== this.focus.table) {
       return undefined
@@ -412,6 +664,199 @@ export default class TableMergePlugin extends Plugin {
       maxRow: Math.max(this.anchor.row, this.focus.row),
       minCol: Math.min(this.anchor.col, this.focus.col),
       maxCol: Math.max(this.anchor.col, this.focus.col),
+    }
+  }
+
+  private getFocusedCell() {
+    const selectionNode = window.getSelection()?.anchorNode
+    const selectionElement = selectionNode instanceof Element
+      ? selectionNode
+      : selectionNode?.parentElement
+    const focusedNode = editor?.focusCid
+      ? document.querySelector(`[cid="${CSS.escape(editor.focusCid)}"]`)
+      : undefined
+    return (selectionElement ?? focusedNode)
+      ?.closest<HTMLTableCellElement>('#write table td, #write table th')
+  }
+
+  private tableHasMergeMarkers(table: HTMLTableElement) {
+    if (table.classList.contains('tm-merged-table')) return true
+    return Array.from(table.rows).some(row => (
+      Array.from(row.cells).some(cell => parseMarker(cell.textContent ?? ''))
+    ))
+  }
+
+  private captureSelection(range: TableRange): TableClipboard {
+    const tableIndex = this.getEditorTableIndex(range.table)
+    const markdown = this.app.features.markdownEditor.getMarkdown()
+    const rows = extractRectangleFromMarkdown(markdown, tableIndex, range)
+    return {
+      version: 1,
+      rows,
+      plainText: rectangleToPlainText(rows),
+    }
+  }
+
+  private writeClipboardText(text: string) {
+    const writeText = navigator.clipboard?.writeText
+    if (typeof writeText !== 'function') return
+    void writeText.call(navigator.clipboard, text).catch((error: unknown) => {
+      console.error('[Table Merge] Failed to write system clipboard', error)
+    })
+  }
+
+  private copySelectedCells() {
+    const range = this.getSelectionRange()
+    if (!range || !this.selectionComplete) {
+      Notice.warning('请先用 Alt/Option 选择需要复制的完整区域。')
+      return
+    }
+
+    try {
+      const clipboard = this.captureSelection(range)
+      this.tableClipboard = clipboard
+      this.writeClipboardText(clipboard.plainText)
+    } catch (error) {
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private cutSelectedCells() {
+    const range = this.getSelectionRange()
+    if (!range || !this.selectionComplete) {
+      Notice.warning('请先用 Alt/Option 选择需要剪切的完整区域。')
+      return
+    }
+
+    try {
+      const clipboard = this.captureSelection(range)
+      this.tableClipboard = clipboard
+      this.writeClipboardText(clipboard.plainText)
+      this.clearSelectedCells(range)
+    } catch (error) {
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private clearSelectedCells(range: TableRange) {
+    const tableIndex = this.getEditorTableIndex(range.table)
+    const markdown = this.app.features.markdownEditor.getMarkdown()
+    const next = clearRectangleInMarkdown(markdown, tableIndex, range)
+    this.reloadMarkdown(next)
+    this.clearSelection(false)
+  }
+
+  private pasteSelectedCells() {
+    if (!this.tableClipboard) {
+      Notice.warning('还没有复制或剪切过表格区域。')
+      return
+    }
+    this.pasteRows(this.tableClipboard.rows)
+  }
+
+  private pasteRows(rows: string[][]) {
+    const range = this.getSelectionRange()
+    if (!range) {
+      Notice.warning('请先用 Alt/Option 点击粘贴位置。')
+      return
+    }
+
+    const selectedRows = range.maxRow - range.minRow + 1
+    const selectedCols = range.maxCol - range.minCol + 1
+    const sourceRows = rows.length
+    const sourceCols = rows[0]?.length ?? 0
+    if (
+      this.selectionComplete &&
+      (selectedRows !== sourceRows || selectedCols !== sourceCols)
+    ) {
+      Notice.warning(`粘贴区域需要是 ${sourceRows}×${sourceCols}，或只选择左上角起点。`)
+      return
+    }
+
+    try {
+      const tableIndex = this.getEditorTableIndex(range.table)
+      const markdown = this.app.features.markdownEditor.getMarkdown()
+      const next = pasteRectangleInMarkdown(
+        markdown,
+        tableIndex,
+        range.minRow,
+        range.minCol,
+        rows,
+      )
+      this.reloadMarkdown(next)
+      this.clearSelection(false)
+    } catch (error) {
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private getContextPoint() {
+    const cell = this.contextCell
+    const table = cell?.closest<HTMLTableElement>('#write table')
+    const rowElement = cell?.parentElement as HTMLTableRowElement | null
+    if (!cell || !table || !rowElement) {
+      throw new Error('无法定位当前表格单元格。')
+    }
+    return {
+      table,
+      row: Array.from(table.rows).indexOf(rowElement),
+      col: Array.from(rowElement.cells).indexOf(cell),
+    }
+  }
+
+  private insertRow(before: boolean) {
+    try {
+      const point = this.getContextPoint()
+      const range = this.getSelectionRange()
+      const insertionRow = range && this.isCellInsideSelection(this.contextCell!)
+        ? (before ? range.minRow : range.maxRow + 1)
+        : point.row + (before ? 0 : 1)
+      const tableIndex = this.getEditorTableIndex(point.table)
+      const markdown = this.app.features.markdownEditor.getMarkdown()
+      this.reloadMarkdown(insertTableRowInMarkdown(markdown, tableIndex, insertionRow))
+      this.clearSelection(false)
+    } catch (error) {
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private deleteRow() {
+    try {
+      const point = this.getContextPoint()
+      const tableIndex = this.getEditorTableIndex(point.table)
+      const markdown = this.app.features.markdownEditor.getMarkdown()
+      this.reloadMarkdown(deleteTableRowInMarkdown(markdown, tableIndex, point.row))
+      this.clearSelection(false)
+    } catch (error) {
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private insertColumn(before: boolean) {
+    try {
+      const point = this.getContextPoint()
+      const range = this.getSelectionRange()
+      const insertionCol = range && this.isCellInsideSelection(this.contextCell!)
+        ? (before ? range.minCol : range.maxCol + 1)
+        : point.col + (before ? 0 : 1)
+      const tableIndex = this.getEditorTableIndex(point.table)
+      const markdown = this.app.features.markdownEditor.getMarkdown()
+      this.reloadMarkdown(insertTableColumnInMarkdown(markdown, tableIndex, insertionCol))
+      this.clearSelection(false)
+    } catch (error) {
+      Notice.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  private deleteColumn() {
+    try {
+      const point = this.getContextPoint()
+      const tableIndex = this.getEditorTableIndex(point.table)
+      const markdown = this.app.features.markdownEditor.getMarkdown()
+      this.reloadMarkdown(deleteTableColumnInMarkdown(markdown, tableIndex, point.col))
+      this.clearSelection(false)
+    } catch (error) {
+      Notice.error(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -492,23 +937,6 @@ export default class TableMergePlugin extends Plugin {
     }
   }
 
-  private toggleEditMode() {
-    const table = this.anchor?.table
-    if (!table) {
-      Notice.warning('请先选择表格中的一个单元格。')
-      return
-    }
-
-    if (table.dataset.tmEditing === 'true') {
-      table.removeAttribute('data-tm-editing')
-      this.clearSelection(false)
-      applyMergesToTable(table, 'live')
-    } else {
-      restoreMergedTable(table)
-      table.dataset.tmEditing = 'true'
-    }
-  }
-
   private getEditorTableIndex(table: HTMLTableElement) {
     const tables = Array.from(document.querySelectorAll<HTMLTableElement>('#write table'))
     const index = tables.indexOf(table)
@@ -543,17 +971,36 @@ export default class TableMergePlugin extends Plugin {
       '取消合并',
       () => this.unmergeSelectedCells(),
     )
+    const copyItem = this.createTableMenuItem(
+      'tm_copy_cells',
+      '复制所选区域',
+      () => this.copySelectedCells(),
+    )
+    const cutItem = this.createTableMenuItem(
+      'tm_cut_cells',
+      '剪切所选区域',
+      () => this.cutSelectedCells(),
+    )
+    const pasteItem = this.createTableMenuItem(
+      'tm_paste_cells',
+      '粘贴表格区域',
+      () => this.pasteSelectedCells(),
+    )
     menu.append(
       mergeItem,
       unmergeItem,
       this.createTableMenuDivider(),
-      this.createNativeTableMenuItem('上方插入行', tableEdit => tableEdit.addRow(true)),
-      this.createNativeTableMenuItem('下方插入行', tableEdit => tableEdit.addRow(false)),
-      this.createNativeTableMenuItem('左侧插入列', tableEdit => tableEdit.addCol(true)),
-      this.createNativeTableMenuItem('右侧插入列', tableEdit => tableEdit.addCol(false)),
+      copyItem,
+      cutItem,
+      pasteItem,
       this.createTableMenuDivider(),
-      this.createNativeTableMenuItem('删除行', tableEdit => tableEdit.deleteRow(false)),
-      this.createNativeTableMenuItem('删除列', tableEdit => tableEdit.deleteCol()),
+      this.createTableMenuItem('tm_insert_row_before', '上方插入行', () => this.insertRow(true)),
+      this.createTableMenuItem('tm_insert_row_after', '下方插入行', () => this.insertRow(false)),
+      this.createTableMenuItem('tm_insert_col_before', '左侧插入列', () => this.insertColumn(true)),
+      this.createTableMenuItem('tm_insert_col_after', '右侧插入列', () => this.insertColumn(false)),
+      this.createTableMenuDivider(),
+      this.createTableMenuItem('tm_delete_row', '删除行', () => this.deleteRow()),
+      this.createTableMenuItem('tm_delete_col', '删除列', () => this.deleteColumn()),
       this.createTableMenuDivider(),
       this.createNativeTableMenuItem('复制表格', tableEdit => tableEdit.copyTable()),
       this.createNativeTableMenuItem('格式化表格源码', tableEdit => tableEdit.reformatTable()),
@@ -565,12 +1012,18 @@ export default class TableMergePlugin extends Plugin {
     this.contextMenu = menu
     this.mergeMenuItem = mergeItem
     this.unmergeMenuItem = unmergeItem
+    this.copyMenuItem = copyItem
+    this.cutMenuItem = cutItem
+    this.pasteMenuItem = pasteItem
 
     this.register(() => {
       menu.remove()
       this.contextMenu = undefined
       this.mergeMenuItem = undefined
       this.unmergeMenuItem = undefined
+      this.copyMenuItem = undefined
+      this.cutMenuItem = undefined
+      this.pasteMenuItem = undefined
     })
   }
 
@@ -642,14 +1095,23 @@ export default class TableMergePlugin extends Plugin {
 
   private updateTableContextMenuItems() {
     const range = this.getSelectionRange()
-    if (!range || !this.mergeMenuItem || !this.unmergeMenuItem) return
+    if (!this.mergeMenuItem || !this.unmergeMenuItem) return
 
-    const rows = range.maxRow - range.minRow + 1
-    const cols = range.maxCol - range.minCol + 1
+    const rows = range ? range.maxRow - range.minRow + 1 : 0
+    const cols = range ? range.maxCol - range.minCol + 1 : 0
     const containsMerge = this.selectionContainsMergeMarker(range)
-    const canMerge = rows * cols > 1 && !containsMerge
+    const canUseSelection = Boolean(range && this.selectionComplete)
+    const canMerge = canUseSelection && rows * cols > 1 && !containsMerge
+    const canUnmerge = canUseSelection && containsMerge
+    this.mergeMenuItem.hidden = !canMerge
+    this.unmergeMenuItem.hidden = !canUnmerge
     this.setMenuItemEnabled(this.mergeMenuItem, canMerge)
-    this.setMenuItemEnabled(this.unmergeMenuItem, containsMerge)
+    this.setMenuItemEnabled(this.unmergeMenuItem, canUnmerge)
+    if (this.copyMenuItem) this.setMenuItemEnabled(this.copyMenuItem, canUseSelection)
+    if (this.cutMenuItem) this.setMenuItemEnabled(this.cutMenuItem, canUseSelection)
+    if (this.pasteMenuItem) {
+      this.setMenuItemEnabled(this.pasteMenuItem, Boolean(range && this.tableClipboard))
+    }
 
     const label = this.mergeMenuItem.querySelector('.tmi-label')
     if (label) {
@@ -719,8 +1181,6 @@ export default class TableMergePlugin extends Plugin {
     this.selectionComplete = false
 
     if (table) {
-      table.removeAttribute('data-tm-selecting')
-      table.removeAttribute('data-tm-editing')
       if (render) applyMergesToTable(table, 'live')
     }
   }

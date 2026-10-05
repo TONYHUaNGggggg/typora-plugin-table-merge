@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     permissions:
       contents: write
     steps:
@@ -32,17 +32,31 @@ jobs:
 
       - run: pnpm run pack
 
+      - name: Build macOS native bridge
+        run: |
+          ./native/macos/build.sh
+          ./native/macos/build-launcher.sh
+          ./native/macos/pack.sh "${{ github.ref_name }}"
+
       - name: Generate release body
         run: |
           tag="${{ github.ref_name }}"
-          prev_tag=$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || echo "")
-          if [ -n "$prev_tag" ]; then
-            echo "## What's Changed" > release_body.md
-            git log "$prev_tag..$tag" --oneline --no-decorate >> release_body.md
-          else
-            echo "## Initial release" > release_body.md
-            git log --oneline --no-decorate "$tag" >> release_body.md
-          fi
+          {
+            echo "## Typora Table Merge $tag"
+            echo
+            awk -v version="$tag" '
+              $0 == "## " version { found = 1; next }
+              found && /^## / { exit }
+              found { print }
+            ' CHANGELOG.md
+            echo
+            echo "### Downloads"
+            echo
+            echo "- **plugin.zip** — community web plugin (all declared platforms)"
+            echo "- **typora-table-merge-macos-native-$tag.zip** — experimental native macOS Table-menu bridge"
+            echo
+            echo "Read the installation, backup, and compatibility notes in the repository README before installing the native bridge."
+          } > release_body.md
 
       - name: Create Release
         env:
@@ -53,3 +67,4 @@ jobs:
           --notes-file release_body.md
           --verify-tag
           plugin.zip
+          "typora-table-merge-macos-native-${{ github.ref_name }}.zip"

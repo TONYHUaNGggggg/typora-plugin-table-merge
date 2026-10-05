@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a reproducible problem with table merging or the native menu bridge.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting a problem. Please remove private document content before attaching Markdown or screenshots.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: 0.3.0
+    validations:
+      required: true
+  - type: input
+    id: typora-version
+    attributes:
+      label: Typora version and build
+      placeholder: 1.14.9 build 7785
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and community core version
+      placeholder: macOS 15.x, typora-community-plugin core 2.9.14
+    validations:
+      required: true
+  - type: dropdown
+    id: native-bridge
+    attributes:
+      label: macOS native bridge
+      options:
+        - Not installed
+        - Installed
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest Markdown table and exact actions that reproduce the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and screenshots
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I fully quit and reopened Typora after installing or updating the plugin.
+          required: true
+        - label: I searched existing issues and removed private document content.
+          required: true
