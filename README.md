@@ -1,12 +1,12 @@
 <div align="center">
 
-# Typora Table Merge
+# Typora TableCraft
 
-**Editable, reversible, persistent merged cells for native Typora Markdown tables.**
+**Advanced native-table editing for Typora: merged cells, structure-safe edits, and a region clipboard.**
 
-[![CI](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/actions/workflows/ci.yml/badge.svg)](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/TONYHUaNGggggg/typora-plugin-table-merge?display_name=tag)](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/releases/latest)
-[![License](https://img.shields.io/github/license/TONYHUaNGggggg/typora-plugin-table-merge)](LICENSE.md)
+[![CI](https://github.com/TONYHUaNGggggg/typora-tablecraft/actions/workflows/ci.yml/badge.svg)](https://github.com/TONYHUaNGggggg/typora-tablecraft/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/TONYHUaNGggggg/typora-tablecraft?display_name=tag)](https://github.com/TONYHUaNGggggg/typora-tablecraft/releases/latest)
+[![License](https://img.shields.io/github/license/TONYHUaNGggggg/typora-tablecraft)](LICENSE.md)
 [![Typora](https://img.shields.io/badge/Typora-1.14.9-476582)](#compatibility)
 
 [中文说明](README.zh-CN.md) · [Quick start](#quick-start) · [Usage](#usage) · [Native menu](#native-macos-menu) · [FAQ](#faq)
@@ -15,7 +15,7 @@
 
 ---
 
-Typora Table Merge adds merged cells without turning your table into a hard-to-edit HTML block. The file remains a normal GFM Markdown table, the editor displays real merged cells, and HTML export emits standard `rowspan` and `colspan` attributes.
+Typora TableCraft adds advanced table editing without turning your table into a hard-to-edit HTML block. The file remains a normal GFM Markdown table, the editor displays real merged cells, and HTML export emits standard `rowspan` and `colspan` attributes.
 
 ## Highlights
 
@@ -33,15 +33,17 @@ Typora Table Merge adds merged cells without turning your table into a hard-to-e
 ## Quick start
 
 1. Install [`typora-community-plugin`](https://github.com/typora-community-plugin/typora-community-plugin).
-2. Download `plugin.zip` from the [latest release](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/releases/latest).
+2. Download `plugin.zip` from the [latest release](https://github.com/TONYHUaNGggggg/typora-tablecraft/releases/latest).
 3. Extract it into the community core's global plugin directory so the plugin folder directly contains `manifest.json`, `main.js`, and `style.css`.
-4. Open **Plugin Settings → Installed Plugins**, enable **Table Merge**, then fully quit and reopen Typora.
+4. Open **Plugin Settings → Installed Plugins**, enable **TableCraft**, then fully quit and reopen Typora.
 
 The verified macOS path is:
 
 ```text
 ~/Library/Application Support/abnerworks.Typora/plugins/plugins/tonyhuang.table-merge/
 ```
+
+Upgrading from the former **Table Merge** name: overwrite this existing directory. The internal plugin ID remains `tonyhuang.table-merge`, so the upgrade does not create a duplicate plugin.
 
 Installing the community core on macOS modifies the Typora app bundle and invalidates its vendor signature. Keep a recoverable backup and follow the core project's macOS instructions.
 
@@ -65,10 +67,10 @@ A web plugin cannot directly extend macOS `NSMenu`. This repository also ships a
 > [!WARNING]
 > The bridge modifies `Typora.app`, hooks private implementation details, and ad-hoc signs the resulting bundle. It is not an official Typora API and is currently verified only with Typora 1.14.9 (build 7785) on macOS. Back up the app first; a Typora update will usually require reinstalling the bridge.
 
-Download `typora-table-merge-macos-native-<version>.zip`, extract it, fully quit Typora, and run:
+Download `typora-tablecraft-macos-native-<version>.zip`, extract it, fully quit Typora, and run:
 
 ```bash
-ditto "/Applications/Typora.app" "$HOME/Desktop/Typora-before-table-merge.app"
+ditto "/Applications/Typora.app" "$HOME/Desktop/Typora-before-tablecraft.app"
 ./native/macos/install-permanent.sh "/Applications/Typora.app"
 ```
 
@@ -130,7 +132,7 @@ pnpm run pack
 ```bash
 ./native/macos/build.sh
 ./native/macos/build-launcher.sh
-./native/macos/pack.sh 0.3.0
+./native/macos/pack.sh 0.3.1
 ```
 
 See [Architecture](docs/ARCHITECTURE.md), [Contributing](CONTRIBUTING.md), and the [Changelog](CHANGELOG.md).

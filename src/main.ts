@@ -101,7 +101,7 @@ export default class TableMergePlugin extends Plugin {
     try {
       this.installTableContextMenuItems()
     } catch (error) {
-      console.error('[Table Merge] Failed to install table menu', error)
+      console.error('[TableCraft] Failed to install table menu', error)
       Notice.warning('Alt/Option 选择可用，但右键菜单加载失败；请使用命令面板完成合并。')
     }
   }
@@ -561,7 +561,7 @@ export default class TableMergePlugin extends Plugin {
       }
       return true
     } catch (error) {
-      console.error('[Table Merge] Failed to publish native menu state', error)
+      console.error('[TableCraft] Failed to publish native menu state', error)
       return false
     }
   }
@@ -701,7 +701,7 @@ export default class TableMergePlugin extends Plugin {
     const writeText = navigator.clipboard?.writeText
     if (typeof writeText !== 'function') return
     void writeText.call(navigator.clipboard, text).catch((error: unknown) => {
-      console.error('[Table Merge] Failed to write system clipboard', error)
+      console.error('[TableCraft] Failed to write system clipboard', error)
     })
   }
 

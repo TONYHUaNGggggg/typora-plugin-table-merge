@@ -24,7 +24,7 @@ static int executable_directory(char *directory, size_t capacity) {
 int main(int argc, char **argv) {
   char directory[PATH_MAX];
   if (executable_directory(directory, sizeof(directory)) != 0) {
-    fputs("Table Merge launcher: unable to locate the app executable directory.\n", stderr);
+    fputs("TableCraft launcher: unable to locate the app executable directory.\n", stderr);
     return 70;
   }
 
@@ -34,12 +34,12 @@ int main(int argc, char **argv) {
           (int)sizeof(original) ||
       snprintf(bridge, sizeof(bridge), "%s/../Frameworks/TMNativeMenuBridge.dylib", directory) >=
           (int)sizeof(bridge)) {
-    fputs("Table Merge launcher: an app path is too long.\n", stderr);
+    fputs("TableCraft launcher: an app path is too long.\n", stderr);
     return 70;
   }
 
   if (access(original, X_OK) != 0 || access(bridge, R_OK) != 0) {
-    fputs("Table Merge launcher: the original executable or native bridge is missing.\n", stderr);
+    fputs("TableCraft launcher: the original executable or native bridge is missing.\n", stderr);
     return 66;
   }
 
@@ -48,14 +48,14 @@ int main(int argc, char **argv) {
   if (existing && existing[0] != '\0') {
     if (snprintf(libraries, sizeof(libraries), "%s:%s", bridge, existing) >=
         (int)sizeof(libraries)) {
-      fputs("Table Merge launcher: DYLD_INSERT_LIBRARIES is too long.\n", stderr);
+      fputs("TableCraft launcher: DYLD_INSERT_LIBRARIES is too long.\n", stderr);
       return 70;
     }
   } else {
     strcpy(libraries, bridge);
   }
   if (setenv("DYLD_INSERT_LIBRARIES", libraries, 1) != 0) {
-    perror("Table Merge launcher: setenv");
+    perror("TableCraft launcher: setenv");
     return 71;
   }
 
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   for (int index = 1; index < argc; index++) child_argv[index] = argv[index];
 
   execv(original, child_argv);
-  perror("Table Merge launcher: execv");
+  perror("TableCraft launcher: execv");
   free(child_argv);
   return 71;
 }

@@ -40,7 +40,7 @@ jobs:
         run: |
           tag="${{ github.ref_name }}"
           {
-            echo "## Typora Table Merge $tag"
+            echo "## Typora TableCraft $tag"
             echo
             awk -v version="$tag" '
               $0 == "## " version { found = 1; next }
@@ -51,7 +51,7 @@ jobs:
             echo "### Downloads"
             echo
             echo "- **plugin.zip** — community web plugin (all declared platforms)"
-            echo "- **typora-table-merge-macos-native-$tag.zip** — experimental native macOS Table-menu bridge"
+            echo "- **typora-tablecraft-macos-native-$tag.zip** — experimental native macOS Table-menu bridge"
             echo
             echo "Read the installation, backup, and compatibility notes in the repository README before installing the native bridge."
           } > release_body.md
@@ -65,4 +65,4 @@ jobs:
           --notes-file release_body.md
           --verify-tag
           plugin.zip
-          "typora-table-merge-macos-native-${{ github.ref_name }}.zip"
+          "typora-tablecraft-macos-native-${{ github.ref_name }}.zip"

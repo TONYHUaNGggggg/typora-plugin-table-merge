@@ -23,7 +23,7 @@ fi
 if [[ ! -e "$original" ]]; then
   mv "$executable" "$original"
 elif cmp -s "$executable" "$launcher_source"; then
-  print "检测到已有 Table Merge 启动器，将更新桥接和签名。"
+  print "检测到已有 TableCraft 启动器，将更新桥接和签名。"
 else
   print -u2 "检测到原始可执行文件已备份，但当前启动入口不是本项目的启动器。"
   print -u2 "为避免覆盖未知修改，已停止安装。"
@@ -36,4 +36,4 @@ install -m 0755 "$bridge_source" "$bridge_destination"
 codesign --force --deep --sign - "$app_bundle"
 codesign --verify --deep --strict --verbose=2 "$app_bundle"
 
-print "已永久嵌入 Table Merge 原生桥接: $app_bundle"
+print "已永久嵌入 TableCraft 原生桥接: $app_bundle"

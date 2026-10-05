@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "typora-plugin-table-merge",
-  "version": "0.3.0",
-  "description": "Editable merged cells for native Typora Markdown tables.",
+  "name": "typora-tablecraft",
+  "version": "0.3.1",
+  "description": "Advanced editing for native Typora Markdown tables, including merged cells and structure-safe operations.",
   "packageManager": "pnpm@11.19.0",
   "type": "module",
   "main": "",
@@ -15,6 +15,7 @@
   },
   "keywords": [
     "typora",
+    "tablecraft",
     "typora-plugin",
     "markdown-table",
     "merged-cells",
@@ -24,10 +25,10 @@
   "author": "Tony Huang",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TONYHUaNGggggg/typora-plugin-table-merge.git"
+    "url": "https://github.com/TONYHUaNGggggg/typora-tablecraft.git"
   },
-  "homepage": "https://github.com/TONYHUaNGggggg/typora-plugin-table-merge#readme",
-  "bugs": "https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/issues",
+  "homepage": "https://github.com/TONYHUaNGggggg/typora-tablecraft#readme",
+  "bugs": "https://github.com/TONYHUaNGggggg/typora-tablecraft/issues",
   "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.23.2",

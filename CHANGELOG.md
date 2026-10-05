@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Rename the project to **Typora TableCraft** and the plugin display name to **TableCraft**.
+- Keep the existing `tonyhuang.table-merge` plugin ID so installed copies upgrade in place.
+- Rename the macOS native release archive to `typora-tablecraft-macos-native-<version>.zip`.
+
 ## 0.3.0
 
 - Expand and shrink rectangular selections with Option/Alt + arrow keys.

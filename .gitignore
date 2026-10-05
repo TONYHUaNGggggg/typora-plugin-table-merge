@@ -9,6 +9,7 @@ yalc.lock
 dist/
 plugin.zip
 typora-table-merge-macos-native-*.zip
+typora-tablecraft-macos-native-*.zip
 release_body.md
 
 # local Typora integration artifacts

@@ -1,6 +1,6 @@
 # Architecture
 
-Typora Table Merge keeps the Markdown table as the source of truth. It does not maintain a second document model and does not replace a table with an HTML block.
+Typora TableCraft keeps the Markdown table as the source of truth. It does not maintain a second document model and does not replace a table with an HTML block.
 
 ## Data flow
 

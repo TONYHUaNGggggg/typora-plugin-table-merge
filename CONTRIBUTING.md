@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for helping improve Typora Table Merge.
+Thank you for helping improve Typora TableCraft.
 
 ## Before opening an issue
 

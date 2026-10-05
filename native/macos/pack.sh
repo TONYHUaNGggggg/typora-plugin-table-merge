@@ -4,9 +4,9 @@ set -euo pipefail
 script_dir="${0:A:h}"
 project_root="${script_dir:h:h}"
 version="${1:?用法: ./native/macos/pack.sh VERSION}"
-archive_name="typora-table-merge-macos-native-${version}.zip"
-staging_root="$(mktemp -d "${TMPDIR:-/tmp}/typora-table-merge-release.XXXXXX")"
-package_root="$staging_root/typora-table-merge-macos-native-${version}"
+archive_name="typora-tablecraft-macos-native-${version}.zip"
+staging_root="$(mktemp -d "${TMPDIR:-/tmp}/typora-tablecraft-release.XXXXXX")"
+package_root="$staging_root/typora-tablecraft-macos-native-${version}"
 
 cleanup() {
   rm -rf "$staging_root"

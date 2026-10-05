@@ -1,12 +1,12 @@
 <div align="center">
 
-# Typora Table Merge
+# Typora TableCraft
 
-**让 Typora 原生 Markdown 表格拥有可编辑、可撤销、可保存、可导出的合并单元格。**
+**为 Typora 原生 Markdown 表格补上合并单元格、结构安全编辑和区域剪贴板。**
 
-[![CI](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/actions/workflows/ci.yml/badge.svg)](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/TONYHUaNGggggg/typora-plugin-table-merge?display_name=tag)](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/releases/latest)
-[![License](https://img.shields.io/github/license/TONYHUaNGggggg/typora-plugin-table-merge)](LICENSE.md)
+[![CI](https://github.com/TONYHUaNGggggg/typora-tablecraft/actions/workflows/ci.yml/badge.svg)](https://github.com/TONYHUaNGggggg/typora-tablecraft/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/TONYHUaNGggggg/typora-tablecraft?display_name=tag)](https://github.com/TONYHUaNGggggg/typora-tablecraft/releases/latest)
+[![License](https://img.shields.io/github/license/TONYHUaNGggggg/typora-tablecraft)](LICENSE.md)
 [![Typora](https://img.shields.io/badge/Typora-1.14.9-476582)](#兼容性)
 
 [English](README.md) · [快速开始](#快速开始) · [操作说明](#操作说明) · [原生菜单](#macos-原生系统菜单) · [常见问题](#常见问题)
@@ -15,7 +15,7 @@
 
 ---
 
-Typora Table Merge 不会把表格转换成难以继续编辑的 HTML Block。文件仍然保存为普通 GFM Markdown 表格，编辑器中显示真正的合并效果，HTML 导出时生成标准 `rowspan` / `colspan`。
+Typora TableCraft 为原生表格提供完整的高级编辑能力，同时不会把表格转换成难以继续编辑的 HTML Block。文件仍然保存为普通 GFM Markdown 表格，编辑器中显示真正的合并效果，HTML 导出时生成标准 `rowspan` / `colspan`。
 
 ## 功能一览
 
@@ -46,9 +46,9 @@ flowchart LR
 
 先按 [`typora-community-plugin`](https://github.com/typora-community-plugin/typora-community-plugin) 的说明安装插件核心。macOS 安装核心会修改 `Typora.app` 并使厂商签名失效，操作前请保留一份可恢复副本。
 
-### 2. 安装 Table Merge
+### 2. 安装 TableCraft
 
-从 [Releases](https://github.com/TONYHUaNGggggg/typora-plugin-table-merge/releases/latest) 下载 `plugin.zip`，解压到社区插件核心的全局插件目录。插件目录中应当直接包含：
+从 [Releases](https://github.com/TONYHUaNGggggg/typora-tablecraft/releases/latest) 下载 `plugin.zip`，解压到社区插件核心的全局插件目录。插件目录中应当直接包含：
 
 ```text
 tonyhuang.table-merge/
@@ -63,7 +63,9 @@ tonyhuang.table-merge/
 ~/Library/Application Support/abnerworks.Typora/plugins/plugins/tonyhuang.table-merge/
 ```
 
-然后打开 **插件设置 → 已安装插件**，启用 **Table Merge**，并完整退出后重新打开 Typora。覆盖插件文件后也必须重启，因为 Typora 会在应用生命周期内缓存已加载的 JavaScript 模块。
+如果从旧名称 **Table Merge** 升级，请直接覆盖这个现有目录。内部插件 ID 仍为 `tonyhuang.table-merge`，因此升级不会生成第二个重复插件。
+
+然后打开 **插件设置 → 已安装插件**，启用 **TableCraft**，并完整退出后重新打开 Typora。覆盖插件文件后也必须重启，因为 Typora 会在应用生命周期内缓存已加载的 JavaScript 模块。
 
 ## 操作说明
 
@@ -116,12 +118,12 @@ tonyhuang.table-merge/
 
 ### 从 Release 安装
 
-1. 下载 `typora-table-merge-macos-native-<版本>.zip` 并解压。
+1. 下载 `typora-tablecraft-macos-native-<版本>.zip` 并解压。
 2. 确保网页插件已经安装并启用。
 3. 完全退出 Typora，然后在解压目录执行：
 
 ```bash
-ditto "/Applications/Typora.app" "$HOME/Desktop/Typora-before-table-merge.app"
+ditto "/Applications/Typora.app" "$HOME/Desktop/Typora-before-tablecraft.app"
 ./native/macos/install-permanent.sh "/Applications/Typora.app"
 ```
 
@@ -170,7 +172,7 @@ ditto "/Applications/Typora.app" "$HOME/Desktop/Typora-before-table-merge.app"
 
 ### Typora 更新以后命令消失
 
-更新可能覆盖社区插件核心和原生桥接。先确认社区核心与 Table Merge 是否仍启用，再重新安装与新版本兼容的原生桥接。不要在未经验证的 Typora 版本上直接覆盖正式应用。
+更新可能覆盖社区插件核心和原生桥接。先确认社区核心与 TableCraft 是否仍启用，再重新安装与新版本兼容的原生桥接。不要在未经验证的 Typora 版本上直接覆盖正式应用。
 
 ## 当前边界
 
@@ -197,7 +199,7 @@ pnpm run pack
 ```bash
 ./native/macos/build.sh
 ./native/macos/build-launcher.sh
-./native/macos/pack.sh 0.3.0
+./native/macos/pack.sh 0.3.1
 ```
 
 架构与数据不变量见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，参与开发请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。版本变化见 [CHANGELOG.md](CHANGELOG.md)。

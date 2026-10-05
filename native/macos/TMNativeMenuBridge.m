@@ -29,10 +29,10 @@ static BOOL TMEvaluateJavaScript(id webView, NSString *script) {
     void (*send)(id, SEL, id, id) = (void *)objc_msgSend;
     void (^completion)(id, NSError *) = ^(id result, NSError *error) {
       if (error) {
-        NSLog(@"[Table Merge Native] JavaScript failed in %@: %@",
+        NSLog(@"[TableCraft Native] JavaScript failed in %@: %@",
               NSStringFromClass([webView class]), error);
       } else if ([result isKindOfClass:[NSString class]]) {
-        NSLog(@"[Table Merge Native] JavaScript result: %@", result);
+        NSLog(@"[TableCraft Native] JavaScript result: %@", result);
       }
     };
     send(webView, asynchronous, script, completion);
@@ -99,10 +99,10 @@ static void TMSendAction(id contextCommands, NSString *action) {
        "})()",
       action,
       action];
-  NSLog(@"[Table Merge Native] Dispatching %@ via %@ -> %@", action,
+  NSLog(@"[TableCraft Native] Dispatching %@ via %@ -> %@", action,
         NSStringFromClass([contextCommands class]), NSStringFromClass([webView class]));
   if (!TMEvaluateJavaScript(webView, script)) {
-    NSLog(@"[Table Merge Native] Unable to find Typora's web view");
+    NSLog(@"[TableCraft Native] Unable to find Typora's web view");
     return;
   }
 }
@@ -370,7 +370,7 @@ static id TMMenuItemsWithDefault(id self, SEL _cmd, NSArray *defaults) {
     for (NSMenuItem *item in destination) [tableMenu addItem:item];
   }
 
-  NSLog(@"[Table Merge Native] Added native table menu items to %@",
+  NSLog(@"[TableCraft Native] Added native table menu items to %@",
         tableMenu ? @"Table submenu" : @"context menu root");
   return items;
 }
@@ -413,7 +413,7 @@ static void TMInstallBridge(NSUInteger remaining) {
         TMInstallBridge(remaining - 1);
       });
     } else {
-      NSLog(@"[Table Merge Native] Typora context-menu class was not found");
+      NSLog(@"[TableCraft Native] Typora context-menu class was not found");
     }
     return;
   }
@@ -421,7 +421,7 @@ static void TMInstallBridge(NSUInteger remaining) {
   TMOriginalSetItems = method_setImplementation(setItems, (IMP)TMSetItems);
   TMOriginalMenuItemsWithDefault = method_setImplementation(
       menuItems, (IMP)TMMenuItemsWithDefault);
-  NSLog(@"[Table Merge Native] Installed bridge %@", TMBridgeVersion);
+  NSLog(@"[TableCraft Native] Installed bridge %@", TMBridgeVersion);
   TMScheduleWebViewMarkers(30);
 }
 

@@ -17,4 +17,4 @@ rm -f "$bridge"
 codesign --force --deep --sign - "$app_bundle"
 codesign --verify --deep --strict --verbose=2 "$app_bundle"
 
-print "已移除 Table Merge 原生桥接: $app_bundle"
+print "已移除 TableCraft 原生桥接: $app_bundle"

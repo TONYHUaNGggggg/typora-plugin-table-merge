@@ -18,7 +18,7 @@
 ./native/macos/build-launcher.sh
 ```
 
-GitHub Release 中的 `typora-table-merge-macos-native-<版本>.zip` 已经包含这两个通用架构二进制文件，无需本地编译。
+GitHub Release 中的 `typora-tablecraft-macos-native-<版本>.zip` 已经包含这两个通用架构二进制文件，无需本地编译。
 
 ## 隔离测试
 
@@ -46,7 +46,7 @@ GitHub Release 中的 `typora-table-merge-macos-native-<版本>.zip` 已经包�
 先完全退出 Typora，并备份完整应用：
 
 ```bash
-ditto "/Applications/Typora.app" "$HOME/Desktop/Typora-before-table-merge.app"
+ditto "/Applications/Typora.app" "$HOME/Desktop/Typora-before-tablecraft.app"
 ```
 
 从源码安装：
